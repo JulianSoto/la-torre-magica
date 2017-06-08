@@ -29,18 +29,27 @@ struct Tablero {
 vector<Tablero>tableros;
 
 ////////////prototipos////////////
-int moverTorre(Tablero, int, int, int);
+int     moverTorre(Tablero, int, int, int);
 Tablero inicializarTablero(Tablero);
-bool movimientoValido(int, int, int, int);
-bool cuadradoMagico(Tablero);
+bool    movimientoValido(int, int, int, int);
+bool    cuadradoMagico(Tablero);
+bool    pruning(Tablero, int, int, int, unsigned long long int);
+int     partialSum(int, int);
+void    printFormatedBoard(Tablero, int);
+
+const int BOARD_BOXES = CASILLAS_LADO*CASILLAS_LADO;
+const int MAGIC_CONSTANT = partialSum(0, BOARD_BOXES)/CASILLAS_LADO;
 
 ////////////funcion principal///////////
 int main(){
     //se declara el tablero
     Tablero tabl;
+    cout << BOARD_BOXES << " " << MAGIC_CONSTANT << endl;
 
     //se inicializa el tablero a 0
     tabl = inicializarTablero(tabl);
+
+    printf("Running...");
 
     //se llama a la funcion que analiza recursivamente
     int nodos = moverTorre(tabl, 1, 0, 0);
@@ -82,23 +91,24 @@ int moverTorre(Tablero t, int profundidad, int x, int y){
                     //se iguala la casilla al valor de la profundidad
                     _t.casillas[i][j] = profundidad;
 
+                    //pruning for a better search
+                    if (pruning(_t, i, j, profundidad, nodos)){
+                        if (nodos%500000 == 0){
+                            printFormatedBoard(_t, nodos);
+                        }
+
+                        continue;
+                    }
+
                     //si no se ocupan todas las casilla
-                    if (profundidad < CASILLAS_LADO*CASILLAS_LADO){
+                    if (profundidad < BOARD_BOXES){
                         //llamada recursiva
                         moverTorre(_t, profundidad+1, i, j);
                     } else {
 
-                        if (nodos%1000000 == 0) {
-                            printf("nodos %llu\n", nodos);
-                            for (int k = 0; k < CASILLAS_LADO; k++){
-                                for (int l = 0; l < CASILLAS_LADO; l++){
-                                    if (_t.casillas[k][l] < 10) printf("%i  ", _t.casillas[k][l]);
-                                    else printf("%i ", _t.casillas[k][l]);
-                                }
-                                printf("\n");
-                            }
-                            printf("\n");
-                        }
+
+                        printFormatedBoard(_t, nodos);
+
 
                         //si es un cuadrado magico se agrega al vector
                         if (cuadradoMagico(_t)) {
@@ -174,4 +184,114 @@ bool cuadradoMagico(Tablero t){
     }
 
     return true;
+}
+
+bool pruning(Tablero t, int _i, int _j, int profundidad, unsigned long long int nodos){
+ /*   static long double sum = 0;
+    static unsigned long long int lastNode = 0, timesCounted = 0;
+
+    if (profundidad == 16){
+        sum = (sum*timesCounted + (nodos - lastNode))/(timesCounted+1);
+        timesCounted++;
+        std::cout << sum << " " << nodos - lastNode << endl;
+        lastNode = nodos;
+    }*/
+
+    if (profundidad == 1){
+        //avoiding rotations
+        if (_j > CASILLAS_LADO/2){
+            return true;
+        }
+        //avoiding reflex
+        if(_j < _i){
+            return true;
+        }
+    }
+
+    int emptySquares = 0;
+    if (_i == _j){
+        int diagSum = 0;
+        for (int i = 0; i < CASILLAS_LADO; i++){
+            int squareVal = t.casillas[i][i];
+            diagSum += squareVal;
+            if (squareVal == 0){
+                emptySquares++;
+            }
+        }
+
+        if (diagSum > MAGIC_CONSTANT){
+            return true;
+        }
+        if (emptySquares == 0 && diagSum < MAGIC_CONSTANT){
+            return true;
+        }
+        if (emptySquares <= CASILLAS_LADO/2 && diagSum + partialSum(BOARD_BOXES-emptySquares, BOARD_BOXES) < MAGIC_CONSTANT){
+            return true;
+        }
+    }
+
+    emptySquares = 0;
+    int iSum = 0;
+
+    for (int i = 0; i < CASILLAS_LADO; i++){
+        int squareVal = t.casillas[i][_j];
+        iSum += squareVal;
+        if (squareVal == 0){
+            emptySquares++;
+        }
+    }
+                //partial sum
+    if (iSum > MAGIC_CONSTANT){
+        return true;
+    }
+    if (emptySquares == 0 && iSum < MAGIC_CONSTANT){
+        return true;
+    }
+    if (emptySquares <= CASILLAS_LADO/2 && iSum + partialSum(BOARD_BOXES-emptySquares, BOARD_BOXES) < MAGIC_CONSTANT){
+        return true;
+    }
+
+    emptySquares = 0;
+    int jSum = 0;
+
+    for (int i = 0; i < CASILLAS_LADO; i++){
+        int squareVal = t.casillas[_i][i];
+        jSum += squareVal;
+        if (squareVal == 0){
+            emptySquares++;
+        }
+    }
+                //partial sum
+    if (jSum > MAGIC_CONSTANT){
+        return true;
+    }
+    if (emptySquares == 0 && jSum < MAGIC_CONSTANT){
+        return true;
+    }
+    if (emptySquares <= CASILLAS_LADO/2 && jSum + partialSum(BOARD_BOXES-emptySquares, BOARD_BOXES) < MAGIC_CONSTANT){
+        return true;
+    }
+
+    return false;
+}
+
+int partialSum(int beg, int en){
+	return ( en*en+en - beg*beg-beg )/2;
+}
+
+void printFormatedBoard(Tablero _t, int nodos){
+    static int lastNode;
+
+    if (lastNode != nodos){
+        lastNode = nodos;
+        printf("nodos %llu\n", nodos);
+        for (int k = 0; k < CASILLAS_LADO; k++){
+            for (int l = 0; l < CASILLAS_LADO; l++){
+                if (_t.casillas[k][l] < 10) printf("%i  ", _t.casillas[k][l]);
+                else printf("%i ", _t.casillas[k][l]);
+            }
+            printf("\n");
+        }
+        printf("\n");
+    }
 }
